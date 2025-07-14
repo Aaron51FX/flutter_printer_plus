@@ -16,7 +16,10 @@ dependencies:
   isolates: ^3.0.3
   esc_utils: ^0.0.1
   tsc_utils: ^0.0.1
-  android_usb_printer: ^0.0.1
+  android_usb_printer:
+    git:
+      url: git@github.com:Aaron51FX/android_usb_printer.git
+      ref: master
   windows_usb_printer: ^0.0.2+4
   print_image_generate_tool: ^0.0.2
   r_get_ip: ^0.1.1
