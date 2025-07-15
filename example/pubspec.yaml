@@ -12,7 +12,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   flutter_screenutil: ^5.7.0
-  r_get_ip: ^0.1.1
+  r_get_ip:
+    git:
+      url: git@github.com:Aaron51FX/r_get_ip.git
   auto_size_text: 3.0.0
   barcode_widget: 2.0.1
   fluttertoast: 8.1.2
