@@ -318,10 +318,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: f7db9a4542352abc610a56d4d98de4f5b8b5ca8a
+      resolved-ref: f45cfb7767c9e8e7b31f3206d8963078ecb73ca1
       url: "git@github.com:Aaron51FX/r_get_ip.git"
     source: git
-    version: "0.1.5"
+    version: "0.1.6"
   sky_engine:
     dependency: transitive
     description: flutter
