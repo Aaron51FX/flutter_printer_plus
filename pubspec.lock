@@ -410,18 +410,19 @@ packages:
     dependency: transitive
     description:
       name: win32
-      sha256: "5a751eddf9db89b3e5f9d50c20ab8612296e4e8db69009788d6c8b060a84191c"
+      sha256: "015002c060f1ae9f41a818f2d5640389cc05283e368be19dc8d77cecb43c40c9"
       url: "https://pub.dev"
     source: hosted
-    version: "4.1.4"
+    version: "5.5.3"
   windows_usb_printer:
     dependency: "direct main"
     description:
-      name: windows_usb_printer
-      sha256: "6e147dcd987a9cadda274b4b8f708f73dd6a2bb9c2c4aeeaf31accf03638236a"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.2+4"
+      path: "."
+      ref: HEAD
+      resolved-ref: "5f008945e1ac30631c993f6d479e375bb212e25d"
+      url: "git@github.com:Aaron51FX/windows_usb_printer.git"
+    source: git
+    version: "0.0.2+5"
   xdg_directories:
     dependency: transitive
     description:
