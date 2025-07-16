@@ -56,8 +56,8 @@ class UsbConn extends PrintBaseConn {
   }
 
   // windows 平台写入
-  Future<int> writeBytesWithWindows(List<int> bytes,) {
-    return WindowsUsbPrinterProvider.usbWrite(usbDevice.productName, bytes);
+  Future<int> writeBytesWithWindows(List<int> bytes,) async {
+    return await WindowsUsbPrinterProvider.usbWrite(usbDevice.productName, bytes);
   }
 
 }
