@@ -420,10 +420,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "5f008945e1ac30631c993f6d479e375bb212e25d"
+      resolved-ref: bcecddb9df00c01b7725c4aca1e928d2ab3ce951
       url: "git@github.com:Aaron51FX/windows_usb_printer.git"
     source: git
-    version: "0.0.2+5"
+    version: "0.0.2+6"
   xdg_directories:
     dependency: transitive
     description:
