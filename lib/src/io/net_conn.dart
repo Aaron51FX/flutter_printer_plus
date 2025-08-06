@@ -151,24 +151,40 @@ class NetConn extends PrintBaseConn {
 
   // 写入数据
   Future<int> writeBytes(
-    List<int> data, {
-    bool isDisconnect = true,
-  }) async {
-    try {
-      if (!_isConnect) {
-        await connect();
+      List<int> data, {
+        bool isDisconnect = true,
+        int maxRetries = 3, // 最大重试次数
+      }) async {
+    int retries = 0;
+    while (retries < maxRetries) {
+      try {
+        if (!_isConnect) {
+          await connect();
+        }
+        if (!_isConnect) {
+          throw Exception('printer connect error ( ip: $address)');
+        }
+        _socket?.add(data);
+        log(
+          'netConn _socket add data : ${data.toString().length}',
+        );
+        if (isDisconnect) {
+          await disconnect();
+        }
+        return data.length;
+      } catch (e) {
+        retries++;
+        if (retries >= maxRetries) {
+          throw Exception('Failed after $maxRetries retries');
+          _isConnect = false;
+          return -1;
+        }
+        log('netConn retry print: time $retries');
+        //throw Exception('printer connect error ( ip: $address) time ${retries}');
+        await Future.delayed(const Duration(seconds: 1));
       }
-      if (!_isConnect) {
-        throw Exception('printer connect error ( ip: $address)');
-      }
-      _socket?.add(data);
-      if (isDisconnect) {
-        await disconnect();
-      }
-      return data.length;
-    } catch (e) {
-      _isConnect = false;
-      return -1;
     }
+    return -1;
   }
+
 }
