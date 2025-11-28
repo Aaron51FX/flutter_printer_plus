@@ -175,9 +175,8 @@ class NetConn extends PrintBaseConn {
       } catch (e) {
         retries++;
         if (retries >= maxRetries) {
-          throw Exception('Failed after $maxRetries retries');
           _isConnect = false;
-          return -1;
+          throw Exception('Failed after $maxRetries retries ( ip: $address)');
         }
         log('netConn retry print: time $retries');
         //throw Exception('printer connect error ( ip: $address) time ${retries}');
