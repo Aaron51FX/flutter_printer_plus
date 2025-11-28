@@ -4,33 +4,111 @@ import 'dart:collection';
 import '../io/net_conn.dart';
 import '../tools/log_tool.dart';
 
-/// A single-printer job controller that serializes print requests, ensures
-/// only one socket session is active at a time, and disconnects once the
-/// queue drains.
+/// Coordinates print jobs for multiple network printers identified by IP.
+///
+/// The controller lazily creates a dedicated worker (and socket connection)
+/// per printer address. Each worker serializes its own queue, ensuring only
+/// one socket connection exists for that printer at a time. Connections are
+/// closed automatically once the printer queue becomes idle.
 class PrinterJobController {
   PrinterJobController({
-    required this.connection,
     this.maxRetriesPerJob = 3,
     this.retryDelay = const Duration(seconds: 1),
     this.idleDisconnectDelay = const Duration(seconds: 5),
   }) : assert(maxRetriesPerJob > 0, 'maxRetriesPerJob must be > 0');
 
-  final NetConn connection;
   final int maxRetriesPerJob;
   final Duration retryDelay;
   final Duration idleDisconnectDelay;
+
+  final Map<String, _PrinterWorker> _workers = <String, _PrinterWorker>{};
+  bool _disposed = false;
+
+  /// Enqueue a print job for the printer at [address].
+  ///
+  /// Returns the total bytes written once the job finishes.
+  Future<int> enqueue(
+    String address,
+    List<List<int>> payload, {
+    Duration? timeout,
+  }) {
+    if (_disposed) {
+      return Future.error(
+        StateError('PrinterJobController has been disposed'),
+      );
+    }
+    final worker = _workers.putIfAbsent(
+      address,
+      () => _PrinterWorker(
+        address: address,
+        maxRetriesPerJob: maxRetriesPerJob,
+        retryDelay: retryDelay,
+        idleDisconnectDelay: idleDisconnectDelay,
+        onFullyIdle: () => _cleanupWorker(address),
+      ),
+    );
+    return worker.enqueue(payload, timeout: timeout);
+  }
+
+  /// Dispose all workers and release resources.
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    final disposes = _workers.values.map((worker) => worker.dispose());
+    await Future.wait(disposes, eagerError: false);
+    _workers.clear();
+  }
+
+  /// Dispose a specific printer worker when it is no longer needed.
+  Future<void> disposePrinter(String address) async {
+    final worker = _workers.remove(address);
+    if (worker != null) {
+      await worker.dispose();
+    }
+  }
+
+  void _cleanupWorker(String address) {
+    final worker = _workers[address];
+    if (worker == null) {
+      return;
+    }
+    if (worker.isCompletelyIdle) {
+      _workers.remove(address);
+    }
+  }
+}
+
+class _PrinterWorker {
+  _PrinterWorker({
+    required this.address,
+    required this.maxRetriesPerJob,
+    required this.retryDelay,
+    required this.idleDisconnectDelay,
+    required this.onFullyIdle,
+  })  : connection = NetConn(address),
+        assert(maxRetriesPerJob > 0);
+
+  final String address;
+  final int maxRetriesPerJob;
+  final Duration retryDelay;
+  final Duration idleDisconnectDelay;
+  final VoidCallback onFullyIdle;
+  final NetConn connection;
 
   final Queue<_QueuedJob> _jobQueue = Queue<_QueuedJob>();
   bool _processing = false;
   bool _disposed = false;
   Timer? _idleTimer;
 
-  /// Push a print job into the queue. The returned [Future] completes with
-  /// the total byte length written to the socket.
+  bool get isCompletelyIdle =>
+      !_processing && _jobQueue.isEmpty && !_disposed && _idleTimer == null;
+
   Future<int> enqueue(List<List<int>> payload, {Duration? timeout}) {
     if (_disposed) {
       return Future.error(
-        StateError('PrinterJobController has been disposed'),
+        StateError('Worker for $address has been disposed'),
       );
     }
     final job = _QueuedJob(payload, Completer<int>(), timeout);
@@ -49,13 +127,11 @@ class PrinterJobController {
       final job = _jobQueue.removeFirst();
       if (!job.completer.isCompleted) {
         job.completer.completeError(
-          StateError('PrinterJobController disposed'),
+          StateError('Worker disposed for $address'),
         );
       }
     }
-    if (connection.connected) {
-      await _safeDisconnect();
-    }
+    await _safeDisconnect();
   }
 
   void _startProcessing() {
@@ -76,6 +152,7 @@ class PrinterJobController {
           _startProcessing();
         } else {
           _scheduleIdleDisconnect();
+          onFullyIdle();
         }
       }
     });
@@ -121,7 +198,7 @@ class PrinterJobController {
         );
       } catch (e) {
         LogTool.log(
-          'PrinterJobController send attempt $attempt failed: ${e.toString()}',
+          'Printer $address send attempt $attempt failed: ${e.toString()}',
         );
         if (attempt >= maxRetriesPerJob) {
           rethrow;
@@ -157,6 +234,9 @@ class PrinterJobController {
     _cancelIdleTimer();
     Future.microtask(() async {
       await _safeDisconnect();
+      if (_jobQueue.isEmpty && !_disposed) {
+        onFullyIdle();
+      }
     });
   }
 
@@ -167,10 +247,12 @@ class PrinterJobController {
     try {
       await connection.disconnect();
     } catch (e) {
-      LogTool.log('PrinterJobController disconnect error: ${e.toString()}');
+      LogTool.log('Printer $address disconnect error: ${e.toString()}');
     }
   }
 }
+
+typedef VoidCallback = void Function();
 
 class _QueuedJob {
   _QueuedJob(this.payload, this.completer, this.timeout);
