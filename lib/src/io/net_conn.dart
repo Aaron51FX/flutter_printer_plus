@@ -57,7 +57,7 @@ class NetConn extends PrintBaseConn {
       _isConnect = true;
       _sourcePort = _socket?.port;
       _socketSubscription = _socket?.listen(
-            (event) {
+        (event) {
           //暂无处理
         },
         onDone: () {
@@ -71,7 +71,7 @@ class NetConn extends PrintBaseConn {
       _close();
       if (canRetry) {
         final isInUseException =
-        e.toString().contains('Address already in use');
+            e.toString().contains('Address already in use');
         if (isInUseException) {
           //需要使用新的 sourcePort
           _sourcePort = null;
@@ -96,9 +96,9 @@ class NetConn extends PrintBaseConn {
       return true;
     }
     void onDisCon(
-        Completer completer,
-        bool result,
-        ) {
+      Completer completer,
+      bool result,
+    ) {
       if (!completer.isCompleted) {
         _close();
         _sourcePort = null;
@@ -109,7 +109,7 @@ class NetConn extends PrintBaseConn {
     final completer = Completer<bool>();
     try {
       _socket?.done.then(
-            (value) {
+        (value) {
           onDisCon(completer, true);
         },
       );
@@ -117,7 +117,7 @@ class NetConn extends PrintBaseConn {
       await _socket?.close();
       Future.delayed(
         const Duration(seconds: 2),
-            () {
+        () {
           onDisCon(completer, true);
         },
       );
@@ -146,15 +146,25 @@ class NetConn extends PrintBaseConn {
       }
       writeCount += resultCount;
     }
+
+    // When keeping the connection open, flush remaining buffered data so
+    // the caller gets a closer-to-reality completion signal.
+    if (!isDisconnect) {
+      final s = _socket;
+      if (s == null || !_isConnect) {
+        throw Exception('socket closed before flush ( ip: $address)');
+      }
+      await s.flush();
+    }
     return writeCount;
   }
 
   // 写入数据
   Future<int> writeBytes(
-      List<int> data, {
-        bool isDisconnect = true,
-        int maxRetries = 3, // 最大重试次数
-      }) async {
+    List<int> data, {
+    bool isDisconnect = true,
+    int maxRetries = 1, // 最大重试次数
+  }) async {
     int retries = 0;
     while (retries < maxRetries) {
       try {
@@ -164,10 +174,22 @@ class NetConn extends PrintBaseConn {
         if (!_isConnect) {
           throw Exception('printer connect error ( ip: $address)');
         }
-        _socket?.add(data);
+
+        final s = _socket;
+        if (s == null) {
+          throw Exception('socket is null ( ip: $address)');
+        }
+        s.add(data);
         log(
           'netConn _socket add data : ${data.toString().length}',
         );
+
+        // If we are not disconnecting, flush here to avoid reporting success
+        // when the socket has already been closed or is failing asynchronously.
+        // if (!isDisconnect) {
+        //   await s.flush();
+        // }
+
         if (isDisconnect) {
           await disconnect();
         }
@@ -185,5 +207,4 @@ class NetConn extends PrintBaseConn {
     }
     return -1;
   }
-
 }

@@ -101,6 +101,7 @@ class _PrinterWorker {
   bool _processing = false;
   bool _disposed = false;
   Timer? _idleTimer;
+  Future<void>? _disconnecting;
 
   bool get isCompletelyIdle =>
       !_processing && _jobQueue.isEmpty && !_disposed && _idleTimer == null;
@@ -145,15 +146,15 @@ class _PrinterWorker {
         await _processQueue();
       } finally {
         _processing = false;
-        if (_disposed) {
-          return;
-        }
-        if (_jobQueue.isNotEmpty) {
-          _startProcessing();
-        } else {
-          _scheduleIdleDisconnect();
-          onFullyIdle();
-        }
+      }
+      if (_disposed) {
+        return;
+      }
+      if (_jobQueue.isNotEmpty) {
+        _startProcessing();
+      } else {
+        _scheduleIdleDisconnect();
+        onFullyIdle();
       }
     });
   }
@@ -181,6 +182,10 @@ class _PrinterWorker {
   }
 
   Future<void> _ensureConnected() async {
+    final disconnecting = _disconnecting;
+    if (disconnecting != null) {
+      await disconnecting;
+    }
     if (connection.connected) {
       return;
     }
@@ -233,7 +238,14 @@ class _PrinterWorker {
   void _disconnectLater() {
     _cancelIdleTimer();
     Future.microtask(() async {
-      await _safeDisconnect();
+      // Another job may arrive around the same time; the processing path will
+      // await this future before reconnecting.
+      _disconnecting ??= _safeDisconnect();
+      try {
+        await _disconnecting;
+      } finally {
+        _disconnecting = null;
+      }
       if (_jobQueue.isEmpty && !_disposed) {
         onFullyIdle();
       }
