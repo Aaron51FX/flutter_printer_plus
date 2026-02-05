@@ -12,7 +12,7 @@ import '../tools/log_tool.dart';
 /// closed automatically once the printer queue becomes idle.
 class PrinterJobController {
   PrinterJobController({
-    this.maxRetriesPerJob = 3,
+    this.maxRetriesPerJob = 5,
     this.retryDelay = const Duration(seconds: 1),
     this.idleDisconnectDelay = const Duration(seconds: 5),
   }) : assert(maxRetriesPerJob > 0, 'maxRetriesPerJob must be > 0');
@@ -163,7 +163,6 @@ class _PrinterWorker {
     while (!_disposed && _jobQueue.isNotEmpty) {
       final job = _jobQueue.removeFirst();
       try {
-        await _ensureConnected();
         final sendFuture = _sendWithRetry(job.payload);
         final written = job.timeout == null
             ? await sendFuture
@@ -197,6 +196,7 @@ class _PrinterWorker {
     while (true) {
       attempt++;
       try {
+        await _ensureConnected();
         return await connection.writeMultiBytes(
           data,
           isDisconnect: false,
@@ -212,7 +212,6 @@ class _PrinterWorker {
         }
         await _safeDisconnect();
         await Future.delayed(_delayForAttempt(attempt));
-        await _ensureConnected();
       }
     }
   }
