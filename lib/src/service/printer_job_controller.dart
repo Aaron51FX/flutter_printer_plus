@@ -206,7 +206,9 @@ class _PrinterWorker {
           'Printer $address send attempt $attempt failed: ${e.toString()}',
         );
         if (attempt >= maxRetriesPerJob) {
-          rethrow;
+          throw Exception(
+            'Printer $address failed to send data after $attempt attempts',
+          );
         }
         await _safeDisconnect();
         await Future.delayed(_delayForAttempt(attempt));
