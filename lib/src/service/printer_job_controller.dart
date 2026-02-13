@@ -12,7 +12,7 @@ import '../tools/log_tool.dart';
 /// closed automatically once the printer queue becomes idle.
 class PrinterJobController {
   PrinterJobController({
-    this.maxRetriesPerJob = 5,
+    this.maxRetriesPerJob = 3,
     this.retryDelay = const Duration(seconds: 1),
     this.idleDisconnectDelay = const Duration(seconds: 5),
   }) : assert(maxRetriesPerJob > 0, 'maxRetriesPerJob must be > 0');
