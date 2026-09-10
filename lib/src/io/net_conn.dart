@@ -27,6 +27,7 @@ class NetConn extends PrintBaseConn {
   }
 
   void _close() {
+    final socket = _socket;
     _isConnect = false;
     _socket = null;
     try {
@@ -35,6 +36,8 @@ class NetConn extends PrintBaseConn {
       //暂无处理
     }
     _socketSubscription = null;
+    // Release the transport even when an error already cleared connected.
+    socket?.destroy();
   }
 
   Future<bool> connect({
@@ -93,6 +96,7 @@ class NetConn extends PrintBaseConn {
 
   Future<bool> disconnect() async {
     if (_socket == null || !_isConnect) {
+      _close();
       return true;
     }
     void onDisCon(
@@ -197,7 +201,7 @@ class NetConn extends PrintBaseConn {
       } catch (e) {
         retries++;
         if (retries >= maxRetries) {
-          _isConnect = false;
+          _close();
           throw Exception('Failed after $maxRetries retries ( ip: $address)');
         }
         log('netConn retry print: time $retries');
